@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "EffectiveMobile": {
+      "commandName": "Project",
+      "commandLineArgs": "\"Северный\" \"2024-11-01 08:20:00\" log.txt\r\n"
+    }
+  }
+}
