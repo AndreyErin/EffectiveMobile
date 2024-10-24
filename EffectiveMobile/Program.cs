@@ -15,25 +15,34 @@ namespace EffectiveMobile
         private static Logger? _logger;
         static void Main(string[] args)
         {
-            //начальная инициализация параметров
-            InitParams(args);
+            //инициализация параметров
+            bool haveParam = InitParams(args);
+
             //получение заказов из файла
             string _pathDataFile = Directory.GetCurrentDirectory() + @"\SourceData.txt";
             var sourceDataList = GetSourceData(_pathDataFile);
-            if (sourceDataList.Count > 0) 
-            { 
+
+            if (sourceDataList.Count > 0)
+            {                
                 //проверка заказов на корректность
                 var validDataList = GetValidOrderList(sourceDataList);
 
-
+                //показываем список всех доступных заказов пользователю
                 ShowAllOrders(validDataList);
 
+                //если район, дату и время не удалось получить
+                //через командную строку или файл конфигурации
+                if (!haveParam)
+                {
+                    //Запрашиваем данные у пользователя
+                    GetParamFromUser();
+                }
 
                 //сортировка заказов согласно условиям
                 Console.WriteLine("Список заказов будет свормирован согласно следующим условиям:");
                 Console.WriteLine($"Район: {_cityDistrict}");
                 Console.WriteLine($"Дата: {_firstDeliveryDateTime.Date.ToShortDateString()}");
-                Console.WriteLine($"Время первого заказа: {_firstDeliveryDateTime.TimeOfDay.ToString()}");
+                Console.WriteLine($"Время c {_firstDeliveryDateTime.TimeOfDay.ToString()} по {_firstDeliveryDateTime.AddMinutes(30).TimeOfDay.ToString()}");
                 var resultOrderList = Sort.GetSortOrderList(validDataList, _cityDistrict, _firstDeliveryDateTime, _logger);
                 //сохранение в файл
                 SaveToFile(resultOrderList);               
@@ -43,17 +52,13 @@ namespace EffectiveMobile
             Console.ReadLine();
         }
 
-        private static void InitParams(string[] args) 
+        private static bool InitParams(string[] args) 
         {
-            using IHost host = Host.CreateApplicationBuilder(args).Build();
-            IConfiguration config = host.Services.GetRequiredService<IConfiguration>();
-
             //Выставляем значения по умолчанию
             _deliveryLog = Directory.GetCurrentDirectory() + @"\log.txt";
             _deliveryOrder = Directory.GetCurrentDirectory() + @"\DeliveryOrder.txt";
-            _cityDistrict = config.GetValue<string>("CityDistrict") ?? "Северный";
-            _firstDeliveryDateTime = DateTime.Parse(config.GetValue<string>("FirstDeliveryDateTime") ?? "2024-11-01 08:00:00");
 
+            bool isHaveDistrictAndDate = false;
             switch (args.Length)
             {
                 case 0:
@@ -68,22 +73,50 @@ namespace EffectiveMobile
                 case 3:
                     _cityDistrict = args[0];
                     _deliveryLog = args[2];
-                    _logger = new(_deliveryLog);
-                    _logger.Log(DateTime.Now.ToString() + $" Запуск приложения. Полученных параметров: 3 ");
 
+                    _logger = new(_deliveryLog);
+                    _logger?.Log(DateTime.Now.ToString() + $" Запуск приложения. Полученных параметров: 3 ");
+                    _logger?.Log("Попытка получить Район, дату и время через параметры при запуске");
                     try
                     {
                         _firstDeliveryDateTime = DateTime.Parse(args[1]);
+                        isHaveDistrictAndDate = true;
+                        _logger?.Log($"(Район: {_cityDistrict}, Время первой доставки: {_firstDeliveryDateTime}, Лог-файл: {_deliveryLog})");
+
                     }
                     catch (Exception)
                     {
-                        Console.WriteLine("Недопустимая дата и время. Дата и время будут взяты из файла конфигурации");
-                        _logger.Log("Недопустимая дата и время. Дата и время будут взяты из файла конфигурации");
+                        isHaveDistrictAndDate = false;
+                        _logger?.Log("Недопустимая дата и время. Данные будут взяты из файла конфигурации");
                     }
-
-                    _logger.Log($"(Район: {_cityDistrict}, Время первой доставки: {_firstDeliveryDateTime}, Лог-файл: {_deliveryLog})");
                     break;
             }
+
+            //пробуем получить данные из файла кофигурации
+            if (!isHaveDistrictAndDate)
+            {
+                using IHost host = Host.CreateApplicationBuilder(args).Build();
+                IConfiguration config = host.Services.GetRequiredService<IConfiguration>();
+
+                _logger?.Log("Попытка получить Район, дату и время из файла конфигурации");
+
+
+                isHaveDistrictAndDate = true;
+                try
+                {
+                    _cityDistrict = config.GetValue<string>("CityDistrict");
+                    _firstDeliveryDateTime = DateTime.Parse(config.GetValue<string>("FirstDeliveryDateTime"));
+                    _logger?.Log($"(Район: {_cityDistrict}, Время первой доставки: {_firstDeliveryDateTime}, Лог-файл: {_deliveryLog})");
+                }
+                catch (Exception ex)
+                {
+                    isHaveDistrictAndDate = false;
+                    _logger?.Log($"Не удалось получить данные из файла конфигурации. Данные будут запрошены и упользователя. Ошибка: {ex.Message}");
+                }
+            }
+
+
+            return isHaveDistrictAndDate;             
         }
 
         private static void SaveToFile(List<Order> orders) 
@@ -180,8 +213,6 @@ namespace EffectiveMobile
                 .GroupBy(x => x.District)
                 .OrderByDescending(x=>x.Count());
 
-
-
             foreach (var group in sortDistrict) 
             {
                 Console.WriteLine("Район " + group.Key + ". Заказов: " +  group.Count().ToString());
@@ -193,6 +224,35 @@ namespace EffectiveMobile
             }
 
             Console.WriteLine("");
+            _logger?.Log("Данные о заказах прошедших валидацию отсортированы и выведены в консоль.");
+        }
+
+        private static void GetParamFromUser()
+        {
+            //получаем данные от пользователя
+            Console.WriteLine("Введие название района");
+            string? district = Console.ReadLine();
+            while (district == null)
+            {
+                Console.WriteLine("Введие название района");
+                district = Console.ReadLine();
+            }
+            _cityDistrict = district;
+
+            Console.WriteLine("Введите дату и время в формате: гггг-мм-дд чч:мм:сс");
+            string? dateTime = Console.ReadLine();
+
+            while (dateTime == null || !DateTime.TryParse(dateTime, out DateTime result))
+            {
+                Console.WriteLine("Введите дату и время в формате: гггг-мм-дд чч:мм:сс");
+                dateTime = Console.ReadLine();
+            }
+
+            _firstDeliveryDateTime = DateTime.Parse(dateTime);
+
+            _logger?.Log("Данные полученные от пользователя:");
+            _logger?.Log($"(Район: {_cityDistrict}, Время первой доставки: {_firstDeliveryDateTime}, Лог-файл: {_deliveryLog})");
+
         }
     }
 }
