@@ -6,11 +6,11 @@ namespace EffectiveMobile
         public int Id { get; set; }
         public float Mass { get; set; }
         public string District { get; set; }
-        public string DateTime { get; set; }
+        public string DateTimeString { get; set; }
 
-        public DateTime? GetDateTimeFormat()
+        public DateTime? GetDateTime()
         {
-            bool isParse = System.DateTime.TryParse(DateTime, out System.DateTime result);
+            bool isParse = DateTime.TryParse(DateTimeString, out DateTime result);
 
             if (isParse)
             {
@@ -22,7 +22,7 @@ namespace EffectiveMobile
 
         public override string ToString()
         {
-            return $"Заказ №{Id}, Вес: {Mass} кг, Район: {District}, Дата и время: {DateTime}";
+            return $"Заказ №{Id}, Вес: {Mass} кг, Район: {District}, Дата и время: {DateTimeString}";
         }
     }
 }

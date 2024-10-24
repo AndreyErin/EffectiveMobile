@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace EffectiveMobile
 {
-    internal class Program
+    public class Program
     {
         private static string _cityDistrict = "";
         private static DateTime _firstDeliveryDateTime;
@@ -24,7 +24,16 @@ namespace EffectiveMobile
             { 
                 //проверка заказов на корректность
                 var validDataList = GetValidOrderList(sourceDataList);
+
+
+                ShowAllOrders(validDataList);
+
+
                 //сортировка заказов согласно условиям
+                Console.WriteLine("Список заказов будет свормирован согласно следующим условиям:");
+                Console.WriteLine($"Район: {_cityDistrict}");
+                Console.WriteLine($"Дата: {_firstDeliveryDateTime.Date.ToShortDateString()}");
+                Console.WriteLine($"Время первого заказа: {_firstDeliveryDateTime.TimeOfDay.ToString()}");
                 var resultOrderList = Sort.GetSortOrderList(validDataList, _cityDistrict, _firstDeliveryDateTime, _logger);
                 //сохранение в файл
                 SaveToFile(resultOrderList);               
@@ -75,11 +84,6 @@ namespace EffectiveMobile
                     _logger.Log($"(Район: {_cityDistrict}, Время первой доставки: {_firstDeliveryDateTime}, Лог-файл: {_deliveryLog})");
                     break;
             }
-
-            Console.WriteLine("Запущена сортировка заказов по следующим данным:");
-            Console.WriteLine($"Район: {_cityDistrict}");
-            Console.WriteLine($"Дата: {_firstDeliveryDateTime.Date.ToShortDateString()}");
-            Console.WriteLine($"Время первого заказа: {_firstDeliveryDateTime.TimeOfDay.ToString()}");
         }
 
         private static void SaveToFile(List<Order> orders) 
@@ -92,7 +96,7 @@ namespace EffectiveMobile
                     streamWriter.WriteLine(item.ToString());
                 }
                 _logger?.Log($"Итоговый список заказов сохранен в файл: {_deliveryOrder}");
-                Console.WriteLine($"Отчет сформирован. Данные сохранены в файл: {_deliveryOrder}");
+                Console.WriteLine($"Список заказов сформирован. Данные сохранены в файл: {_deliveryOrder}");
             }
             else
             {
@@ -102,30 +106,38 @@ namespace EffectiveMobile
             
         }
 
-        private static List<string> GetSourceData(string pathSourceFile) 
+        public static List<string> GetSourceData(string pathSourceFile) 
         {
             List<string> result = new();
 
-            if(!File.Exists(pathSourceFile))
+            try
             {
-                _logger?.Log($"Файл с данными о заказах({pathSourceFile}) не найден.");
-                Console.WriteLine($"Файл с данными о заказах({pathSourceFile}) не найден.");
-                return result;
+                using StreamReader streamReader = new StreamReader(pathSourceFile);
+                string? line;
+
+                while ((line = streamReader.ReadLine()) != null)
+                {
+                    result.Add(line);
+                }
+                _logger?.Log($"Чтение из файла ({pathSourceFile}). Получено строк: {result.Count}");
+
+                if (result.Count == 0)
+                {
+                    _logger?.Log($"Файл данныx({pathSourceFile}) не содержит информацию о заказах.");
+                    Console.WriteLine($"Файл данныx({pathSourceFile}) не содержит информацию о заказах.");
+                }
             }
-
-            using StreamReader streamReader = new StreamReader(pathSourceFile);
-            string? line;
-
-            while ((line = streamReader.ReadLine()) != null)
+            catch (FileNotFoundException ex)
             {
-                result.Add(line);
+                _logger?.Log($"Файл с данными о заказах({pathSourceFile}) не найден. Ошибка: {ex.Message}.");
+                Console.WriteLine($"Ошибка. Файл с данными о заказах({pathSourceFile}) не найден.");
+
             }
-            _logger?.Log($"Чтение из файла ({pathSourceFile}). Получено строк: {result.Count}");
-
-            if (result.Count == 0)
+            catch (Exception ex)
             {
-                _logger?.Log($"Файл данныx({pathSourceFile}) не содержит информацию о заказах.");
-                Console.WriteLine($"Файл данныx({pathSourceFile}) не содержит информацию о заказах.");
+
+                _logger?.Log($"При поппытке получить данные из файла({pathSourceFile}) произошла ошибка: {ex.Message}.");
+                Console.WriteLine($"Ошибка. Не удалось получить данные о заказах из файла({pathSourceFile})");
             }
 
             return result;
@@ -138,7 +150,7 @@ namespace EffectiveMobile
             foreach (var item in sourceDataList)
             {
                 Order? order = JsonSerializer.Deserialize<Order>(item);
-                if (order != null && order?.GetDateTimeFormat() != null)
+                if (order != null && order?.GetDateTime() != null)
                 {
                     orders.Add(order);
                 }
@@ -160,6 +172,27 @@ namespace EffectiveMobile
             }
 
             return orders;
+        }
+
+        private static void ShowAllOrders(List<Order> orders)
+        {
+            var sortDistrict = orders
+                .GroupBy(x => x.District)
+                .OrderByDescending(x=>x.Count());
+
+
+
+            foreach (var group in sortDistrict) 
+            {
+                Console.WriteLine("Район " + group.Key + ". Заказов: " +  group.Count().ToString());
+
+                foreach (var order in group.OrderBy(x=>x.GetDateTime()))
+                {
+                    Console.WriteLine($"   Заказ №{order.Id}, Вес: {order.Mass} кг, Дата: {order.GetDateTime()?.ToShortDateString()}, время: {order.GetDateTime()?.ToShortTimeString()}");
+                }
+            }
+
+            Console.WriteLine("");
         }
     }
 }

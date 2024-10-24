@@ -9,8 +9,8 @@ namespace EffectiveMobile
             DateTime lastDeliveryDateTime = firstDeliveryDateTime.AddMinutes(30);
             List<Order> orders = dataList
                 .Where(x=>x.District == cityDistrict)
-                .Where(y=>y.GetDateTimeFormat() >= firstDeliveryDateTime && y.GetDateTimeFormat() <= lastDeliveryDateTime)
-                .OrderBy(z=>z.GetDateTimeFormat())
+                .Where(y=>y.GetDateTime() >= firstDeliveryDateTime && y.GetDateTime() <= lastDeliveryDateTime)
+                .OrderBy(z=>z.GetDateTime())
                 .ToList();
 
             logger?.Log($"Заказов соответвующих условиям: {orders.Count}");
