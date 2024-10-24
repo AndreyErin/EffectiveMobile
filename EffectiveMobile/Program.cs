@@ -209,6 +209,7 @@ namespace EffectiveMobile
 
         private static void ShowAllOrders(List<Order> orders)
         {
+            Console.WriteLine("Распределение заказов по районам:");
             var sortDistrict = orders
                 .GroupBy(x => x.District)
                 .OrderByDescending(x=>x.Count());

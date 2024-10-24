@@ -11,6 +11,9 @@
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="SourceData.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
